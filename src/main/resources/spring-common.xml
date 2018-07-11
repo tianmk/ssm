@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+     xmlns:tx="http://www.springframework.org/schema/tx"
+    xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+		http://www.springframework.org/schema/aop
+		http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+	     http://www.springframework.org/schema/tx
+	     http://www.springframework.org/schema/tx/spring-tx-4.2.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context-4.2.xsd">
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+	
+	<!--配置dataSource，其实现类为org.springframework.jdbc.datasource.DriverManagerDataSource -->
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<!--指定连接数据库的驱动-->
+		<property name="driverClassName" value="${jdbc.driverClassName}" />
+		<!--指定连接数据库的URL-->
+		<property name="url" value="${jdbc.url}" />
+		<!--指定连接数据库的用户名-->
+		<property name="username" value="${jdbc.username}" />
+		<!--指定连接数据库的密码-->
+		<property name="password" value="${jdbc.password}" />
+	</bean>
+	
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"></property>	
+		<property name="mapperLocations">
+			<array>
+				<value>classpath:demo/dao/mapper/*Mapper.xml</value>
+			</array>
+		</property>
+		<property name="typeAliasesPackage" value="demo.entity"/>
+		<property name="plugins" >
+			<array>
+				<bean class="com.github.pagehelper.PageInterceptor">
+					<property name="properties">
+						<props>
+							<prop key="helperDialect">mysql</prop>
+						</props>
+					</property>
+				</bean>
+			</array>
+		</property>
+	</bean>
+	<bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg ref="sqlSessionFactory"></constructor-arg>
+	</bean>
+	
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="demo.dao"></property>
+		<property name="sqlSessionTemplateBeanName" value="sqlSessionTemplate"></property>
+	</bean>
+	
+		
+	<bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	
+	<tx:advice id="txAdvice" transaction-manager="txManager">
+		 <!-- the transactional semantics... -->
+		<tx:attributes>
+		  <!-- all methods starting with 'get' are read-only -->
+			<tx:method name="get*" read-only="true"/>
+			<!-- other methods use the default transaction settings (see below) -->
+		  	<tx:method name="add*" propagation="REQUIRED"/>
+		  	<tx:method name="del*" propagation="REQUIRED"/>
+		  	<tx:method name="update*" propagation="REQUIRED"/>
+		  	<tx:method name="*" read-only="true"/>
+		</tx:attributes>
+	</tx:advice>
+	
+	<aop:config>
+		<aop:pointcut id="bizTransaction" expression="execution(* demo.service.*.*(..))"/>
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="bizTransaction"/>
+	</aop:config>
+	
+	
+</beans>
